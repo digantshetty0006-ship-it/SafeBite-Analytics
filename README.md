@@ -8,6 +8,8 @@ original live deployment.
 
 **Original live demo (untouched):** <https://safebite-demo.vercel.app>
 
+**Analytics-enhanced live demo:** <https://safebite-analytics.vercel.app>
+
 > **Demo and data notice.** The seeded dataset is synthetic. Nothing here is
 > official government statistics or a regulatory determination, and no
 > endorsement by FSSAI, Maharashtra FDA or any government body is implied.
