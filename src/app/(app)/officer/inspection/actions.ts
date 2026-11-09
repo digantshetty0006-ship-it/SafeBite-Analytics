@@ -6,7 +6,7 @@ import fs from "fs/promises";
 import path from "path";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
-import { calculateRiskScore } from "@/lib/risk";
+import { recalculateBusinessRisk } from "@/lib/risk-service";
 
 export interface UploadResult {
   ok: boolean;
@@ -72,14 +72,13 @@ export async function completeInspectionAction(formData: FormData) {
 
     const business = await tx.business.findUnique({
       where: { id: existing.businessId },
-      include: { inspections: { include: { violations: true } }, complaints: true, documents: true },
+      select: { id: true },
     });
     if (business) {
-      const r = calculateRiskScore(business);
-      await tx.business.update({
-        where: { id: business.id },
-        data: { riskScore: r.score, riskTier: r.tier },
-      });
+      // A completed inspection is a material risk event: recalculate from the
+      // records just written and force a snapshot so the intelligence pages can
+      // show movement against the previous score.
+      await recalculateBusinessRisk(business.id, { client: tx, forceSnapshot: true });
     }
   });
 
@@ -87,5 +86,11 @@ export async function completeInspectionAction(formData: FormData) {
   revalidatePath(`/officer/business/${existing.businessId}`);
   revalidatePath("/officer/queue");
   revalidatePath("/officer/dashboard");
+  revalidatePath("/officer/analytics");
+  revalidatePath("/officer/intelligence");
+  revalidatePath("/officer/intelligence/risk");
+  revalidatePath("/officer/intelligence/process");
+  revalidatePath("/officer/intelligence/quality");
+  revalidatePath("/officer/intelligence/reports");
   redirect(`/officer/inspection/${id}?done=1`);
 }

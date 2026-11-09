@@ -1,0 +1,10 @@
+# Python analytics toolkit dependencies.
+#
+# Install from this directory:
+#   py -m pip install -r analytics/python/requirements.txt
+#
+# pandas and numpy are the only runtime dependencies. The optional Jupyter
+# notebook also needs jupyterlab (not required for the CLI or self-tests).
+
+pandas>=2.2
+numpy>=1.26

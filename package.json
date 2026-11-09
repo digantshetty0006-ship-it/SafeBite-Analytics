@@ -4,9 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "prisma generate && next dev",
-    "build": "prisma generate --schema prisma/schema.pg.prisma && next build",
+    "build": "prisma generate && next build",
+    "build:pg": "prisma generate --schema prisma/schema.pg.prisma && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:seed": "tsx prisma/seed.ts",
+    "analytics:smoke": "tsx scripts/analytics-smoke.ts",
+    "analytics:sql": "tsx scripts/run-sql.ts",
+    "analytics:sql:validate": "tsx scripts/validate-sql.ts",
+    "analytics:datasets": "tsx scripts/export-powerbi.ts",
+    "test": "node --import tsx --test tests/risk.test.ts tests/filters.test.ts tests/kpis.test.ts tests/reports.test.ts tests/quality.test.ts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.9.1",

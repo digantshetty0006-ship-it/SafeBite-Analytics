@@ -1,0 +1,7 @@
+﻿"district","asOf","premises","highRiskPremises","averageRiskScore","inspectionsCompletedLast90Days","findingsLast90Days","complaintsReceivedLast90Days","complaintsResolvedLast90Days","overdueOpenComplaints"
+"Mumbai","2026-11-09T16:32:46.050Z","23","3","24.6","7","14","20","1","14"
+"Pune","2026-11-09T16:32:46.050Z","9","2","26","5","10","5","0","4"
+"Thane","2026-11-09T16:32:46.050Z","7","2","34.3","3","10","13","0","11"
+"Nagpur","2026-11-09T16:32:46.050Z","6","0","15.8","2","1","1","0","1"
+"Navi Mumbai","2026-11-09T16:32:46.050Z","6","0","19.5","0","0","5","1","4"
+"Nashik","2026-11-09T16:32:46.050Z","5","1","29","2","5","2","0","2"

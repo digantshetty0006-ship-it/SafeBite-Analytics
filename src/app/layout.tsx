@@ -12,7 +12,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "SafeBite — Prevent unsafe food before it reaches people",
   description:
-    "AI-assisted food safety inspection management for FSSAI and Maharashtra FDA. Predictive risk scoring, district heat maps, and outbreak detection.",
+    "AI-assisted food safety inspection management for FSSAI and Maharashtra FDA. Deterministic risk prioritisation, district heat maps, and rule-based network signals.",
 };
 
 const THEME_SCRIPT = `(function(){try{var c=document.cookie.match(/(?:^|;\\s*)safebite_theme=([^;]*)/);var t=c?c[1]:"";if(t!=="light"){document.documentElement.classList.add("dark")}}catch(e){}})();`;

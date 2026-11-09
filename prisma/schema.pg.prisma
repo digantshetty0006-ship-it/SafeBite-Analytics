@@ -17,6 +17,7 @@ model Business {
   lng           Float
   ownerId       String
   supplier      String?
+  status        String   @default("active")
   riskScore     Float    @default(50)
   riskTier      String   @default("B")
   registeredAt  DateTime @default(now())
@@ -25,6 +26,13 @@ model Business {
   complaints    Complaint[]
   documents     Document[]
   suppliers     Supplier[]
+  riskSnapshots RiskSnapshot[]
+
+  @@index([district])
+  @@index([category])
+  @@index([riskTier])
+  @@index([status])
+  @@index([licenseNumber])
 }
 
 model Supplier {
@@ -55,6 +63,12 @@ model Inspection {
   status       String     @default("scheduled")
   business     Business   @relation(fields: [businessId], references: [id])
   officer      User       @relation(fields: [officerId], references: [id])
+
+  @@index([businessId])
+  @@index([officerId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([completedAt])
 }
 
 model Violation {
@@ -64,6 +78,10 @@ model Violation {
   severity     String
   description  String
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@index([inspectionId])
+  @@index([type])
+  @@index([severity])
 }
 
 model Complaint {
@@ -77,6 +95,11 @@ model Complaint {
   photos              String    @default("[]")
   status              String    @default("submitted")
   createdAt           DateTime  @default(now())
+  assignedAt          DateTime?
+  investigationStartedAt DateTime?
+  inspectionAt        DateTime?
+  resolvedAt          DateTime?
+  slaDays             Int       @default(7)
   lat                 Float?
   lng                 Float?
   address             String?
@@ -85,6 +108,12 @@ model Complaint {
   business            Business? @relation(fields: [businessId], references: [id])
   citizen             User?     @relation("CitizenComplaints", fields: [citizenId], references: [id])
   assignedOfficer     User?     @relation("AssignedComplaints", fields: [assignedOfficerId], references: [id])
+
+  @@index([businessId])
+  @@index([assignedOfficerId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([resolvedAt])
 }
 
 model Document {
@@ -95,6 +124,24 @@ model Document {
   uploadedAt  DateTime  @default(now())
   expiresAt   DateTime?
   business    Business  @relation(fields: [businessId], references: [id])
+
+  @@index([businessId])
+  @@index([expiresAt])
+}
+
+/// Deterministic, reproducible point-in-time risk scores. A snapshot stores the
+/// factor breakdown that produced the score so historical movement is explainable.
+model RiskSnapshot {
+  id         String   @id @default(cuid())
+  businessId String
+  score      Float
+  tier       String
+  factors    Json
+  snapshotAt DateTime @default(now())
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, snapshotAt])
+  @@index([snapshotAt])
 }
 
 model User {

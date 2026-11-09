@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, type Business, type User } from "@prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaPg } from "@prisma/adapter-pg";
 import path from "path";
@@ -159,8 +159,79 @@ function mulberry32(a: number) {
 const rng = mulberry32(20260805);
 const pick = <T>(arr: T[]): T => arr[Math.floor(rng() * arr.length)];
 const range = (min: number, max: number) => min + Math.floor(rng() * (max - min + 1));
-const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 3600 * 1000);
-const daysAhead = (days: number) => new Date(Date.now() + days * 24 * 3600 * 1000);
+const DAY_MS = 24 * 3600 * 1000;
+const daysAgo = (days: number) => new Date(Date.now() - days * DAY_MS);
+const daysAhead = (days: number) => new Date(Date.now() + days * DAY_MS);
+
+/**
+ * Complaint categories carry a service-level target. Targets are policy
+ * values used for SLA reporting, not estimates produced by a model.
+ */
+const COMPLAINT_TYPES: { type: string; slaDays: number }[] = [
+  { type: "hygiene", slaDays: 7 },
+  { type: "expired_stock", slaDays: 5 },
+  { type: "temperature", slaDays: 5 },
+  { type: "food_poisoning", slaDays: 3 },
+  { type: "adulteration", slaDays: 3 },
+  { type: "pest", slaDays: 5 },
+  { type: "licensing", slaDays: 10 },
+  { type: "labeling", slaDays: 7 },
+];
+
+/** Existing statuses constrain how old a complaint must be to be plausible. */
+const STATUS_AGE_RANGE: Record<string, [number, number]> = {
+  submitted: [0, 14],
+  under_review: [3, 35],
+  inspection_scheduled: [6, 60],
+  resolved: [14, 240],
+};
+
+interface ComplaintLifecycle {
+  assignedAt: Date | null;
+  investigationStartedAt: Date | null;
+  inspectionAt: Date | null;
+  resolvedAt: Date | null;
+}
+
+function complaintLifecycle(
+  status: string,
+  createdAt: Date,
+  slaDays: number,
+  late: boolean
+): ComplaintLifecycle {
+  const ageDays = (Date.now() - createdAt.getTime()) / DAY_MS;
+  if (status === "submitted") {
+    return {
+      assignedAt: null,
+      investigationStartedAt: null,
+      inspectionAt: null,
+      resolvedAt: null,
+    };
+  }
+  const assignedAt = new Date(
+    createdAt.getTime() + Math.min(0.5, Math.max(0.1, ageDays * 0.05)) * DAY_MS
+  );
+  const investigationStartedAt = new Date(
+    assignedAt.getTime() + Math.min(0.8, Math.max(0.2, ageDays * 0.05)) * DAY_MS
+  );
+  let inspectionAt: Date | null = null;
+  if (status === "inspection_scheduled" || status === "resolved") {
+    inspectionAt = new Date(
+      investigationStartedAt.getTime() + Math.min(1.5, Math.max(0.4, ageDays * 0.08)) * DAY_MS
+    );
+  }
+  let resolvedAt: Date | null = null;
+  if (status === "resolved") {
+    const targetDays = late ? slaDays + range(1, 3) : Math.max(1, range(1, slaDays));
+    const maxDays = Math.max(1, ageDays - 0.3);
+    const actualDays = Math.min(targetDays, maxDays);
+    resolvedAt = new Date(createdAt.getTime() + actualDays * DAY_MS);
+    if (inspectionAt && inspectionAt >= resolvedAt) {
+      inspectionAt = new Date(resolvedAt.getTime() - 0.2 * DAY_MS);
+    }
+  }
+  return { assignedAt, investigationStartedAt, inspectionAt, resolvedAt };
+}
 
 const CHECKLIST_DEF: { key: string; label: string }[] = [
   { key: "hygiene", label: "General hygiene & cleanliness" },
@@ -189,7 +260,9 @@ const VIOLATION_TO_CHECKLIST: Record<string, string[]> = {
 
 const PHOTOS = ["/uploads/photo-kitchen.svg", "/uploads/photo-storage.svg", "/uploads/photo-stall.svg", "/uploads/photo-packaging.svg"];
 
-function makeChecklist(violations: string[]): any[] {
+function makeChecklist(
+  violations: string[]
+): { key: string; label: string; passed: boolean; notes: string }[] {
   const failed = new Set(violations.flatMap((v) => VIOLATION_TO_CHECKLIST[v] ?? []));
   return CHECKLIST_DEF.map((item) => ({
     key: item.key,
@@ -210,6 +283,7 @@ function severityRoll(r: number): string {
 
 async function main() {
   console.log("Resetting database...");
+  await prisma.riskSnapshot.deleteMany();
   await prisma.supplier.deleteMany();
   await prisma.violation.deleteMany();
   await prisma.inspection.deleteMany();
@@ -219,10 +293,9 @@ async function main() {
   await prisma.user.deleteMany();
 
   // ---- Users ----
-  const officer = await prisma.user.create({
+  await prisma.user.create({
     data: { name: "Anita Deshmukh", email: "officer@demo.in", password: "demo1234", role: "food_officer", district: "Maharashtra" },
-  });
-  const officer1 = await prisma.user.create({
+  });  const officer1 = await prisma.user.create({
     data: { name: "Rahul Patil", email: "inspector@demo.in", password: "demo1234", role: "food_officer", district: "Mumbai" },
   });
   const officer2 = await prisma.user.create({
@@ -234,7 +307,7 @@ async function main() {
   const demoCitizen = await prisma.user.create({
     data: { name: "Meera Joshi", email: "citizen@demo.in", password: "demo1234", role: "citizen", district: "Mumbai" },
   });
-  const citizens: any[] = [];
+  const citizens: User[] = [];
   for (const nm of ["Arnav Patel", "Sana Sheikh", "Kunal Desai", "Ritika Verma", "Aditya Kumar"]) {
     citizens.push(
       await prisma.user.create({
@@ -247,7 +320,7 @@ async function main() {
   });
 
   const officers = [officer1, officer2, officer3];
-  const owners: any[] = [demoOwner];
+  const owners: User[] = [demoOwner];
   const OWNER_NAMES = [
     "Suresh Iyer", "Farida Khan", "Manish Gupta", "Deepa Nair", "Arjun Singh",
     "Pooja Reddy", "Imran Shaikh", "Ganesh Bapat", "Kavita Menon", "Sunil Jadhav",
@@ -262,12 +335,13 @@ async function main() {
   }
 
   // ---- Businesses ----
-  const businesses: any[] = [];
+  const businesses: { biz: Business; category: string; riskProfile: number }[] = [];
 
   // Real restaurants first (real names, addresses, coordinates).
   let serial = 100001;
   for (const r of REAL_RESTAURANTS) {
     const owner = owners[Math.floor(rng() * owners.length)];
+    const riskProfile = rng();
     const biz = await prisma.business.create({
       data: {
         name: r.name,
@@ -279,10 +353,11 @@ async function main() {
         lng: r.lng + (rng() - 0.5) * 0.004,
         supplier: rng() < 0.6 ? pick(SUPPLIERS) : null,
         ownerId: owner.id,
+        status: riskProfile > 0.94 ? "suspended" : "active",
         registeredAt: daysAgo(range(120, 2400)),
       },
     });
-    businesses.push({ biz, category: r.category, riskProfile: rng() });
+    businesses.push({ biz, category: r.category, riskProfile });
   }
 
   // Generated businesses round out the remaining districts.
@@ -310,6 +385,7 @@ async function main() {
           lng,
           supplier: hasSupplier ? pick(SUPPLIERS) : null,
           ownerId: owner.id,
+          status: riskProfile > 0.94 ? "suspended" : "active",
           registeredAt: daysAgo(range(60, 1100)),
         },
       });
@@ -380,7 +456,7 @@ async function main() {
   ];
 
   let createdInspections = 0;
-  for (const { biz, category, riskProfile } of businesses) {
+  for (const { biz, riskProfile } of businesses) {
     const intent = riskProfile;
     const isHotspot = intent > 0.8;
     const nInsp = intent < 0.3 ? 1 : intent < 0.7 ? range(1, 2) : isHotspot ? 3 : range(2, 3);
@@ -457,19 +533,80 @@ async function main() {
   console.log(`Created ${createdInspections} inspections.`);
 
   // ---- Complaints ----
-  const complaintTemplates = [
-    "Found a hair in my food while dining. Concerned about hygiene practices.",
-    "The packaged snack I bought had expired date clearly visible. Tasted stale.",
-    "Served undercooked chicken — worried about food poisoning.",
-    "Kitchen area visible from counter looked dirty with no staff wearing gloves.",
-    "Strong chemical smell in the storage area behind the shop.",
-    "Suspected adulteration in the milk products purchased last week.",
-    "Rats seen near the food storage entrance.",
-    "Cold items served lukewarm — refrigeration may be broken.",
-    "No FSSAI license displayed at the premises.",
-    "Complaint of stomach upset after eating here; suspect stale ingredients.",
+  const complaintTemplates: { type: string; description: string }[] = [
+    { type: "hygiene", description: "Found a hair in my food while dining. Concerned about hygiene practices." },
+    { type: "expired_stock", description: "The packaged snack I bought had expired date clearly visible. Tasted stale." },
+    { type: "food_poisoning", description: "Served undercooked chicken — worried about food poisoning." },
+    { type: "hygiene", description: "Kitchen area visible from counter looked dirty with no staff wearing gloves." },
+    { type: "temperature", description: "Strong chemical smell in the storage area behind the shop." },
+    { type: "adulteration", description: "Suspected adulteration in the milk products purchased last week." },
+    { type: "pest", description: "Rats seen near the food storage entrance." },
+    { type: "temperature", description: "Cold items served lukewarm — refrigeration may be broken." },
+    { type: "licensing", description: "No FSSAI license displayed at the premises." },
+    { type: "food_poisoning", description: "Complaint of stomach upset after eating here; suspect stale ingredients." },
+    { type: "labeling", description: "Allergen information missing from the packaged item label." },
+    { type: "hygiene", description: "Staff handling food without washing hands after clearing tables." },
   ];
-  const complaintStatuses = ["submitted", "under_review", "inspection_scheduled", "resolved"];
+  const complaintStatusPool = [
+    "submitted",
+    "under_review",
+    "inspection_scheduled",
+    "resolved",
+    "under_review",
+    "resolved",
+    "inspection_scheduled",
+  ];
+
+  function complaintData(
+    biz: { id: string; address: string; district: string; lat: number; lng: number } | null,
+    status: string,
+    opts: {
+      citizenId?: string | null;
+      anonymous?: boolean;
+      withPhoto?: boolean;
+      createdAt?: Date;
+      typeDef?: { type: string; slaDays: number };
+      assignedOfficerId?: string | null;
+      resolvedAtOverride?: Date | null;
+    } = {}
+  ) {
+    const template = pick(complaintTemplates);
+    const typeDef =
+      opts.typeDef ??
+      COMPLAINT_TYPES.find((t) => t.type === template.type) ??
+      COMPLAINT_TYPES[0];
+    const age = STATUS_AGE_RANGE[status] ?? [0, 30];
+    const createdAt = opts.createdAt ?? daysAgo(range(age[0], age[1]));
+    const lifecycle = complaintLifecycle(status, createdAt, typeDef.slaDays, rng() < 0.22);
+    const anonymous = opts.anonymous ?? rng() < 0.3;
+    const assignedOfficerId =
+      status === "submitted"
+        ? null
+        : opts.assignedOfficerId ?? officers[Math.floor(rng() * officers.length)].id;
+    return {
+      businessId: biz?.id ?? null,
+      citizenId: anonymous
+        ? null
+        : opts.citizenId ?? citizens[Math.floor(rng() * citizens.length)].id,
+      assignedOfficerId,
+      anonymous,
+      description: template.description,
+      type: typeDef.type,
+      photos: opts.withPhoto || rng() < 0.4 ? JSON.stringify([pick(PHOTOS)]) : "[]",
+      status,
+      createdAt,
+      ...lifecycle,
+      resolvedAt:
+        opts.resolvedAtOverride !== undefined
+          ? opts.resolvedAtOverride
+          : lifecycle.resolvedAt,
+      slaDays: typeDef.slaDays,
+      address: biz?.address ?? null,
+      district: biz?.district ?? pick(DISTRICTS).name,
+      lat: anonymous ? null : biz ? biz.lat + (rng() - 0.5) * 0.02 : null,
+      lng: anonymous ? null : biz ? biz.lng + (rng() - 0.5) * 0.02 : null,
+    };
+  }
 
   const hotspots = businesses.filter(({ riskProfile }) => riskProfile > 0.8);
   const weightedTargets = businesses.flatMap(({ biz, riskProfile }) => {
@@ -477,65 +614,101 @@ async function main() {
     return Array.from({ length: copies }, () => biz);
   });
 
-  for (let i = 0; i < 16; i++) {
-    const biz = pick(weightedTargets);
-    const anonymous = rng() < 0.3;
-    const withPhoto = rng() < 0.45;
-    const citizen = citizens[Math.floor(rng() * citizens.length)];
+  for (let i = 0; i < 28; i++) {
+    const status = pick(complaintStatusPool);
+    const biz = rng() < 0.9 ? pick(weightedTargets) : null;
     await prisma.complaint.create({
-      data: {
-        businessId: rng() < 0.9 ? biz.id : null,
-        citizenId: anonymous ? null : citizen.id,
-        anonymous,
-        description: pick(complaintTemplates),
-        photos: withPhoto ? JSON.stringify([pick(PHOTOS)]) : "[]",
-        status: pick(complaintStatuses),
-        createdAt: daysAgo(range(0, 120)),
-        address: biz.address,
-        district: biz.district,
-        lat: anonymous ? undefined : biz.lat + (rng() - 0.5) * 0.02,
-        lng: anonymous ? undefined : biz.lng + (rng() - 0.5) * 0.02,
-      },
+      data: complaintData(biz, status, { withPhoto: rng() < 0.45 }),
+    });
+  }
+
+  // Archived resolved complaints keep the previous-period comparison meaningful.
+  for (let i = 0; i < 24; i++) {
+    const biz = pick(weightedTargets);
+    await prisma.complaint.create({
+      data: complaintData(biz, "resolved", {
+        createdAt: daysAgo(range(95, 330)),
+        withPhoto: rng() < 0.3,
+      }),
     });
   }
 
   // Hotspot businesses carry multiple, mostly-substantiated complaints.
-  const hotspotStatuses = ["under_review", "inspection_scheduled", "resolved", "resolved"];
+  const hotspotStatuses = ["under_review", "inspection_scheduled", "resolved", "resolved", "submitted"];
   for (const { biz } of hotspots) {
     const n = range(2, 4);
     for (let c = 0; c < n; c++) {
       await prisma.complaint.create({
-        data: {
-          businessId: biz.id,
-          citizenId: rng() < 0.7 ? citizens[Math.floor(rng() * citizens.length)].id : null,
-          anonymous: rng() < 0.3,
-          description: pick(complaintTemplates),
-          photos: rng() < 0.5 ? JSON.stringify([pick(PHOTOS)]) : "[]",
-          status: pick(hotspotStatuses),
-          createdAt: daysAgo(range(1, 95)),
-          address: biz.address,
-          district: biz.district,
-          lat: biz.lat + (rng() - 0.5) * 0.02,
-          lng: biz.lng + (rng() - 0.5) * 0.02,
-        },
+        data: complaintData(biz, pick(hotspotStatuses), { withPhoto: rng() < 0.5 }),
       });
     }
   }
+
   const demoComplaintBusiness = businesses.find(({ riskProfile }) => riskProfile > 0.8)?.biz ?? null;
   await prisma.complaint.create({
-    data: {
-      businessId: demoComplaintBusiness?.id ?? null,
+    data: complaintData(demoComplaintBusiness, "under_review", {
       citizenId: demoCitizen.id,
       anonymous: false,
-      description: "Reported stale bread from the delivery order — crust was mouldy.",
-      photos: JSON.stringify(["/uploads/complaint-food.svg"]),
-      status: "under_review",
+      withPhoto: true,
       createdAt: daysAgo(2),
-      address: demoComplaintBusiness?.address ?? null,
-      district: demoComplaintBusiness?.district ?? null,
-    },
+    }),
   });
+
+  // ---- Deliberate data-quality edge cases ---------------------------------
+  // These are real records in the demo database so the Data Quality workspace
+  // has findings to show. Normal anonymous complaints are NOT flagged: only
+  // contradictory anonymity data (anonymous flag + citizen identity) is.
+  const anomalyBusiness = demoComplaintBusiness ?? businesses[0].biz;
+  const conflictingAnonymity = complaintData(anomalyBusiness, "under_review", {
+    anonymous: true,
+    createdAt: daysAgo(4),
+  });
+  await prisma.complaint.create({
+    data: { ...conflictingAnonymity, citizenId: demoCitizen.id },
+  });
+
+  const missingResolution = complaintData(anomalyBusiness, "resolved", {
+    createdAt: daysAgo(20),
+  });
+  await prisma.complaint.create({
+    data: { ...missingResolution, resolvedAt: null },
+  });
+
+  const negativeResolution = complaintData(anomalyBusiness, "resolved", {
+    createdAt: daysAgo(30),
+  });
+  await prisma.complaint.create({
+    data: { ...negativeResolution, resolvedAt: daysAgo(32) },
+  });
+
   console.log("Complaints created.");
+
+  // ---- Deliberate integrity issues for the Data Quality workspace --------
+  const anomalyInspection = await prisma.inspection.findFirst({
+    where: { status: "completed" },
+    orderBy: { scheduledAt: "desc" },
+    select: { id: true, scheduledAt: true },
+  });
+  if (anomalyInspection) {
+    await prisma.inspection.update({
+      where: { id: anomalyInspection.id },
+      data: {
+        completedAt: new Date(anomalyInspection.scheduledAt.getTime() - 2 * DAY_MS),
+      },
+    });
+  }
+
+  const licenceRows = await prisma.business.findMany({
+    select: { id: true, licenseNumber: true },
+    orderBy: { registeredAt: "asc" },
+    take: 2,
+  });
+  if (licenceRows.length === 2) {
+    await prisma.business.update({
+      where: { id: licenceRows[1].id },
+      data: { licenseNumber: licenceRows[0].licenseNumber },
+    });
+  }
 
   // ---- Compute risk scores from actual data (transparent scoring) ----
   const allBusinesses = await prisma.business.findMany({ include: { inspections: { include: { violations: true } }, complaints: true, documents: true } });
@@ -546,6 +719,39 @@ async function main() {
       data: { riskScore: r.score, riskTier: r.tier },
     });
   }
+
+  // ---- Point-in-time risk snapshots --------------------------------------
+  // Six monthly snapshots make period-over-period risk KPIs genuinely
+  // historical rather than reconstructed from today's scores.
+  const now = new Date();
+  const snapshotRows: {
+    businessId: string;
+    score: number;
+    tier: string;
+    factors: Record<string, number>;
+    snapshotAt: Date;
+  }[] = [];
+  for (let offset = 5; offset >= 0; offset -= 1) {
+    const asOf =
+      offset === 0
+        ? now
+        : new Date(
+            Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - offset + 1, 0, 23, 59, 59)
+          );
+    for (const b of allBusinesses) {
+      if (b.registeredAt > asOf) continue;
+      const r = calculateRiskScore(b, asOf);
+      snapshotRows.push({
+        businessId: b.id,
+        score: r.score,
+        tier: r.tier,
+        factors: r.factors,
+        snapshotAt: asOf,
+      });
+    }
+  }
+  await prisma.riskSnapshot.createMany({ data: snapshotRows });
+  console.log(`Created ${snapshotRows.length} risk snapshots.`);
 
   const tierCounts = allBusinesses.reduce<Record<string, number>>((acc, b) => {
     const t = scoreToTier(calculateRiskScore(b).score);

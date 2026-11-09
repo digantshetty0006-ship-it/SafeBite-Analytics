@@ -126,13 +126,13 @@ const dict: Record<string, [string, string, string]> = {
   "home.s4l": ["explainable SafeBite ratings", "समझने योग्य SafeBite रेटिंग", "स्पष्ट SafeBite रेटिंग"],
 
   // ---- home: features ----
-  "home.featsTitle": ["From reactive to predictive food safety", "प्रतिक्रियात्मक से भविष्यसूचक खाद्य सुरक्षा तक", "प्रतिक्रियात्मक ते भविष्यसूचक अन्न सुरक्षा"],
+  "home.featsTitle": ["From reactive to risk-based food safety", "प्रतिक्रियात्मक से जोखिम-आधारित खाद्य सुरक्षा तक", "प्रतिक्रियात्मक ते जोखीम-आधारित अन्न सुरक्षा"],
   "home.featsSub": [
     "One platform that turns scattered complaints, inspections, lab results, and registration data into a single dynamic risk picture.",
     "एक प्लेटफ़ॉर्म जो बिखरी शिकायतों, निरीक्षणों, प्रयोगशाला परिणामों और पंजीकरण डेटा को एक गतिशील जोखिम चित्र में बदलता है।",
     "एकच व्यासपीठ जी विखुरलेल्या तक्रारी, तपासण्या, प्रयोगशाळा निकाल आणि नोंदणी डेटा एका गतिशील जोखीम चित्रात बदलते.",
   ],
-  "home.f1t": ["Predictive Risk Scoring", "भविष्यसूचक जोखिम स्कोरिंग", "भविष्यसूचक जोखीम गुणांकन"],
+  "home.f1t": ["Explainable Risk Scoring", "व्याख्यायोग्य जोखिम स्कोरिंग", "स्पष्टीकरणक्षम जोखीम गुणांकन"],
   "home.f1b": [
     "Every registered business gets a live, explainable 0–100 Food Safety Risk Score computed from violations, complaints, inspection gaps, and document compliance.",
     "हर पंजीकृत व्यवसाय को उल्लंघन, शिकायतों, निरीक्षण कमियों और दस्तावेज़ अनुपालन से बना 0–100 का लाइव, व्याख्या योग्य खाद्य सुरक्षा जोखिम स्कोर मिलता है।",
@@ -279,6 +279,7 @@ const dict: Record<string, [string, string, string]> = {
   "nav.map": ["District Risk Map", "जिला जोखिम मैप", "जिल्हा जोखीम नकाशा"],
   "nav.schedule": ["Inspection Schedule", "निरीक्षण अनुसूची", "तपासणी वेळापत्रक"],
   "nav.analytics": ["Analytics & Outbreaks", "एनालिटिक्स और प्रकोप", "विश्लेषण व प्रादुर्भाव"],
+  "nav.intelligence": ["Intelligence & BI", "इंटेलिजेंस और बीआई", "इंटेलिजन्स आणि बीआय"],
   "nav.report": ["Report Unsafe Food", "असुरक्षित भोजन रिपोर्ट करें", "असुरक्षित अन्न नोंदवा"],
   "nav.track": ["Track Complaints", "शिकायत ट्रैक करें", "तक्रार ट्रॅक करा"],
   "nav.lookup": ["Business Lookup", "व्यवसाय खोज", "व्यवसाय शोध"],
@@ -620,7 +621,7 @@ const dict: Record<string, [string, string, string]> = {
   "an.s2t": ["The system proposes, the officer disposes", "सिस्टम सुझाव देती है, अधिकारी निर्णय लेते हैं", "सिस्टम सूचना देते, अधिकारी निर्णय घेतात"],
   "an.s2b": ["The heuristic only flags a suspicious pattern — five outlets, same failure, same supplier. It never convicts anyone: the officer opens the linked files, checks invoices, and confirms or rejects the link. This human-in-the-loop step keeps the demo honest and defensible.", "ह्यूरिस्टिक केवल संदिग्ध पैटर्न चिह्नित करती है — पाँच दुकानें, एक जैसी विफलता, एक ही आपूर्तिकर्ता। यह किसी को दोषी नहीं ठहराती: अधिकारी फाइलें खोलकर चालान जाँचते हैं और लिंक स्वीकार या अस्वीकार करते हैं। यह मानव-निर्णय चरण डेमो को ईमानदार रखता है।", "ह्युरिस्टिक फक्त संशयास्पद पॅटर्न चिन्हांकित करते — पाच दुकाने, सारखे अपयश, एकच पुरवठादार. ते कोणालाही दोषी ठरवत नाही: अधिकारी फाइल उघडून चालान तपासतात आणि दुवा स्वीकारतात किंवा नाकारतात. ही मानव-निर्णय पायरी डेमो प्रामाणिक ठेवते."],
   "an.s3t": ["Why it beats inspecting outlet-by-outlet", "यह दुकान-दर-दुकान निरीक्षण से बेहतर क्यों है", "ते दुकान-तोडून-दुकान तपासणीपेक्षा चांगले का आहे"],
-  "an.s3b": ["If the five outlets share a supplier, fixing the five kitchens only treats symptoms — the bad batch hits the next five next week. One audit of the shared supplier, with batch trace, stops the entire network at once. That is the difference between reactive and predictive food safety.", "अगर पाँच दुकानें एक ही आपूर्तिकर्ता से खरीदती हैं, तो पाँच रसोई ठीक करना सिर्फ लक्षणों का इलाज है — अगले सप्ताह खराब बैच अगली पाँच को लगेगा। साझा आपूर्तिकर्ता की एक ही जाँच, बैच ट्रेस के साथ, पूरे नेटवर्क को रोक देती है। यही प्रतिक्रियात्मक और भविष्यसूचक खाद्य सुरक्षा का अंतर है।", "जर पाच दुकाने एकाच पुरवठादाराकडून खरेदी करत असतील, तर पाच स्वयंपाकघरे दुरुस्त करणे फक्त लक्षणांचे उपचार आहे — पुढील आठवड्यात वाईट बॅच पुढील पाच दुकानांना लागेल. सामायिक पुरवठादाराची एकच तपासणी, बॅच ट्रेससह, संपूर्ण साखळी थांबवते. हाच प्रतिक्रियात्मक आणि भविष्यसूचक अन्न सुरक्षेतील फरक आहे."],
+  "an.s3b": ["If the five outlets share a supplier, fixing the five kitchens only treats symptoms — the bad batch hits the next five next week. One audit of the shared supplier, with batch trace, stops the entire network at once. That is the difference between reactive and preventive food safety.", "अगर पाँच दुकानें एक ही आपूर्तिकर्ता से खरीदती हैं, तो पाँच रसोई ठीक करना सिर्फ लक्षणों का इलाज है — अगले सप्ताह खराब बैच अगली पाँच को लगेगा। साझा आपूर्तिकर्ता की एक ही जाँच, बैच ट्रेस के साथ, पूरे नेटवर्क को रोक देती है। यही प्रतिक्रियात्मक और निवारक खाद्य सुरक्षा का अंतर है।", "जर पाच दुकाने एकाच पुरवठादाराकडून खरेदी करत असतील, तर पाच स्वयंपाकघरे दुरुस्त करणे फक्त लक्षणांचे उपचार आहे — पुढील आठवड्यात वाईट बॅच पुढील पाच दुकानांना लागेल. सामायिक पुरवठादाराची एकच तपासणी, बॅच ट्रेससह, संपूर्ण साखळी थांबवते. हाच प्रतिक्रियात्मक आणि प्रतिबंधात्मक अन्न सुरक्षेतील फरक आहे."],
   "an.honesty": ["The clustering in this demo is a rule-based heuristic — it proposes patterns for an officer to confirm. The confidence % measures how much supporting evidence exists, not certainty.", "इस डेमो में क्लस्टरिंग एक नियम-आधारित ह्यूरिस्टिक है — यह अधिकारी की पुष्टि के लिए पैटर्न सुझाती है। विश्वास % समर्थन साक्ष्य की मात्रा दर्शाता है, निश्चितता नहीं।", "या डेमोमधील क्लस्टरिंग हे नियम-आधारित ह्युरिस्टिक आहे — ते अधिकाऱ्याच्या पुष्टीसाठी पॅटर्न सुचवते. विश्वास % म्हणजे समर्थन पुराव्याचे प्रमाण, खात्री नव्हे."],
   "an.walkthrough": ["Full walkthrough with demo script:", "डेमो स्क्रिप्ट के साथ पूरा वॉकथ्रू:", "डेमो स्क्रिप्टसह संपूर्ण वॉकथ्रू:"],
   "an.judgesGuide": ["the judges' guide", "निर्णायक मार्गदर्शिका", "निर्णायक मार्गदर्शक"],

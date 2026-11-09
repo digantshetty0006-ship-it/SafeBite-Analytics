@@ -27,7 +27,12 @@ const url = process.env.DATABASE_URL ?? "file:./dev.db";
 
 const adapter = isPostgres(url)
   ? new PrismaPg({ connectionString: url })
-  : new PrismaBetterSqlite3({ url: resolveDatabaseUrl(url) });
+  : new PrismaBetterSqlite3({
+      url: resolveDatabaseUrl(url),
+      // Vercel's serverless filesystem is read-only. Open the bundled demo
+      // database in read-only mode there; local development stays writable.
+      readonly: process.env.VERCEL === "1",
+    });
 
 export const db =
   globalForPrisma.prisma ??

@@ -18,6 +18,7 @@ import {
   X,
   Truck,
   Network,
+  Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROLE_LABELS } from "@/lib/auth";
@@ -38,6 +39,7 @@ const NAV: Record<string, { href: string; labelKey: string; icon: React.ReactNod
     { href: "/officer/map", labelKey: "nav.map", icon: <Map className="h-4 w-4" /> },
     { href: "/officer/schedule", labelKey: "nav.schedule", icon: <CalendarDays className="h-4 w-4" /> },
     { href: "/officer/suppliers", labelKey: "nav.supplierNetwork", icon: <Network className="h-4 w-4" /> },
+    { href: "/officer/intelligence", labelKey: "nav.intelligence", icon: <Gauge className="h-4 w-4" /> },
     { href: "/officer/analytics", labelKey: "nav.analytics", icon: <BarChart3 className="h-4 w-4" /> },
   ],
   citizen: [
